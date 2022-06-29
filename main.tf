@@ -1,25 +1,3 @@
-resource "tls_private_key" "ssh" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-resource "local_file" "ssh_private_key_pem" {
-  content         = tls_private_key.ssh.private_key_pem
-  filename        = ".ssh/google_compute_engine"
-  file_permission = "0600"
-  depends_on = [
-    tls_private_key.ssh
-  ]
-}
-
-resource "google_compute_address" "static_ip" {
-  name         = "my-internal-address"
-  subnetwork   = "default"
-  address_type = "INTERNAL"
-  address      = "10.128.15.211"
-  region       = "us-central1"
-}
-
 resource "google_compute_firewall" "allow_ssh" {
   name          = "allow-ssh"
   network       = "default"
@@ -32,79 +10,88 @@ resource "google_compute_firewall" "allow_ssh" {
   }
 }
 
-data "google_client_openid_userinfo" "me" {}
+module "cluster-1" {
+  source = "./vm_config"
 
-resource "google_compute_instance" "debian_vm" {
-  name         = "debian"
-  machine_type = "f1-micro"
-  tags         = ["allow-ssh"] // this receives the firewall rule
+  key_filename                = "./ssh/cassandra1"
+  ip_name                     = "cassandra1"
+  sub_network                 = "default"
+  address_type                = "INTERNAL"
+  ip_address                  = "10.128.15.211"
+  region                      = "us-central1"
+  vm_name                     = "cassandra1"
+  machine_type                = "n2-standard-2"
+  image                       = "debian-cloud/debian-9"
+  network                     = "default"
+  user                        = "terraform"
+  source_file_yaml            = "./vm_config/cassandra.yml"
+  destination_path_yaml       = "/home/terraform/cassandra.yml"
+  source_file_properties      = "./vm_config/cassandra-rackdc.properties"
+  destination_path_properties = "/home/terraform/cassandra-rackdc.properties"
+  source_file_service         = "./vm_config/cassandra.service"
+  destination_path_service    = "/home/terraform/cassandra.service"
+  script_path                 = "./vm_config/script.sh"
 
-  metadata = {
-    ssh-keys = "${split("@", data.google_client_openid_userinfo.me.email)[0]}:${tls_private_key.ssh.public_key_openssh}"
-  }
-
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-9"
-    }
-  }
-
-  network_interface {
-    network = "default"
-    network_ip = google_compute_address.static_ip.address
-  }
   depends_on = [
-    google_compute_address.static_ip , google_compute_firewall.allow_ssh , local_file.ssh_private_key_pem
+    google_compute_firewall.allow_ssh
   ]
-
-  provisioner "file" {
-    connection {
-      host        = google_compute_address.static_ip.address
-      type        = "ssh"
-      user        = "terraform"
-      timeout     = "60s"
-      private_key = file(local_file.ssh_private_key_pem.filename)
-    }
-      source      = "./cassandra.yml"
-      destination = "/home/terraform/cassandra.yml"
-      
-  }
-  provisioner "file" {
-    connection {
-      host        = google_compute_address.static_ip.address
-      type        = "ssh"
-      user        = "terraform"
-      timeout     = "60s"
-      private_key = file(local_file.ssh_private_key_pem.filename)
-    }
-      source      = "./cassandra-rackdc.properties"
-      destination = "/home/terraform/cassandra-rackdc.properties"
-      
-  }
-  provisioner "file" {
-    connection {
-      host        = google_compute_address.static_ip.address
-      type        = "ssh"
-      user        = "terraform"
-      timeout     = "60s"
-      private_key = file(local_file.ssh_private_key_pem.filename)
-    }
-      source      = "./cassandra.service"
-      destination = "/home/terraform/cassandra.service"
-      
-  }
   
+}
 
-  provisioner "remote-exec" {
-    connection {
-      host        = google_compute_address.static_ip.address
-      type        = "ssh"
-      user        = "terraform"
-      timeout     = "500s"
-      private_key = file(local_file.ssh_private_key_pem.filename)
-    }
-    script = "./script.sh"
-  }
 
+module "cluster-2" {
+  source = "./vm_config"
+
+  key_filename                = "./ssh/cassandra2"
+  ip_name                     = "cassandra2"
+  sub_network                 = "default"
+  address_type                = "INTERNAL"
+  ip_address                  = "10.128.15.212"
+  region                      = "us-central1"
+  vm_name                     = "cassandra2"
+  machine_type                = "n2-standard-2"
+  image                       = "debian-cloud/debian-9"
+  network                     = "default"
+  user                        = "terraform"
+  source_file_yaml            = "./vm_config/cassandra.yml"
+  destination_path_yaml       = "/home/terraform/cassandra.yml"
+  source_file_properties      = "./vm_config/cassandra-rackdc.properties"
+  destination_path_properties = "/home/terraform/cassandra-rackdc.properties"
+  source_file_service         = "./vm_config/cassandra.service"
+  destination_path_service    = "/home/terraform/cassandra.service"
+  script_path                 = "./vm_config/script.sh"
+
+  depends_on = [
+    google_compute_firewall.allow_ssh
+  ]
+  
+}
+
+module "cluster-3" {
+  source = "./vm_config"
+
+  key_filename                = "./ssh/cassandra3"
+  ip_name                     = "cassandra3"
+  sub_network                 = "default"
+  address_type                = "INTERNAL"
+  ip_address                  = "10.128.15.213"
+  region                      = "us-central1"
+  vm_name                     = "cassandra3"
+  machine_type                = "n2-standard-2"
+  image                       = "debian-cloud/debian-9"
+  network                     = "default"
+  user                        = "terraform"
+  source_file_yaml            = "./vm_config/cassandra.yml"
+  destination_path_yaml       = "/home/terraform/cassandra.yml"
+  source_file_properties      = "./vm_config/cassandra-rackdc.properties"
+  destination_path_properties = "/home/terraform/cassandra-rackdc.properties"
+  source_file_service         = "./vm_config/cassandra.service"
+  destination_path_service    = "/home/terraform/cassandra.service"
+  script_path                 = "./vm_config/script.sh"
+
+  depends_on = [
+    google_compute_firewall.allow_ssh
+  ]
+  
 }
 
